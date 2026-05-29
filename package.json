@@ -1,0 +1,16 @@
+{
+  "name": "ai-drawio-collab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered collaborative drawing application",
+  "scripts": {
+    "dev:web": "pnpm --filter @ai-drawio/web dev",
+    "dev:server": "pnpm --filter @ai-drawio/server dev",
+    "dev": "pnpm run --parallel dev:web dev:server",
+    "build": "pnpm run --parallel build",
+    "lint": "pnpm run --parallel lint"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
