@@ -8,17 +8,23 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
-    "naive-ui": "^2.41.0",
     "@css-render/vue3-ssr": "^0.15.0",
-    "vue": "latest",
-    "nuxt": "^3.15.0"
+    "naive-ui": "^2.41.0",
+    "nuxt": "^3.15.0",
+    "vue": "latest"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.0",
     "@nuxtjs/tailwindcss": "^6.13.0",
-    "typescript": "^5.7.0"
+    "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/test-utils": "^2.4.10",
+    "happy-dom": "^20.9.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.7"
   }
 }
