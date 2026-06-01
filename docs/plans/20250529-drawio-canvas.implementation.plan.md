@@ -1,6 +1,59 @@
 # 20250529-drawio-canvas.implementation.plan
 
+## 执行权限与边界约束
+- **允许创建/修改的文件**：仅限本 Plan 中 T0-T6 明确列出的业务文件、测试文件及沙盒页面。
+- **允许安装的依赖（白名单）**：
+  - 仅允许安装测试基建依赖：`vitest`, `@vue/test-utils`, `happy-dom`。
+  - **禁止**安装任何业务逻辑相关的新依赖（如 React, 新的 UI 库等）。
+- **绝对禁止的操作**：
+  - 禁止修改除 T0 允许外的全局配置文件（如 `nuxt.config.ts`, `tsconfig.json`）。
+  - 禁止引入任何 React 相关的包或语法。
+  - 禁止在沙盒页面（Sandbox）之外的生产代码中遗留 `console.log`。
+
+## 混合验证策略映射 (Hybrid Verification Strategy)
+根据模块特性，严格区分自动化单元测试与手动沙盒验证：
+
+### A. Vitest 自动化测试 (针对纯函数/核心逻辑)
+- **T2 (XML 管线)** -> `tests/web/composables/useDrawioXmlPipe.spec.ts`
+  - *测试重点*：`normalizeXml` 的 6 步管线、非法字符过滤、`wrapWithMxFile` 的 4 种分支。
+- **T4 (DOM 操作)** -> `tests/web/composables/useDrawioOperations.spec.ts`
+  - *测试重点*：`applyOperations` 对虚拟 DOM 的增删改查、关联 edge 的级联删除警告。
+
+### B. 沙盒页面验证 (针对跨域通信/复杂 DOM 集成)
+放弃 Vitest Mock，在 `apps/web/pages/sandbox/` 目录下创建独立路由页面进行真实环境验证：
+- **T3 (iframe 通信)** -> `apps/web/pages/sandbox/iframe-msg.vue`
+  - *验证方式*：页面嵌入真实 drawio iframe，提供“触发 Export”和“发送 Load”按钮，通过浏览器控制台观察 `postMessage` 收发及 `pendingExportResolve` 状态。
+- **T5 (Vue 组件集成)** -> `apps/web/pages/sandbox/drawio-canvas.vue`
+  - *验证方式*：引入最终的 `<DrawioCanvas />` 组件，在页面上提供外部控制按钮（如“外部注入 XML”、“外部添加节点”），验证 `defineExpose` 暴露的方法及 `emit` 事件是否正常触发。
+
 ## 任务清单
+
+### T0：初始化 Vitest 测试基建 (Hybrid Strategy 基础)
+- **目标**：搭建纯净的 Vue 3 单元测试环境，仅用于验证纯函数逻辑。
+- **操作步骤**：
+  1. 运行包管理器安装依赖：`pnpm add -D vitest @vue/test-utils happy-dom` (若用 npm 则对应替换)。
+  2. 在项目根目录（或 `apps/web/` 目录下，视 monorepo 结构而定）创建 `vitest.config.ts`：
+     ```typescript
+     import { defineConfig } from 'vitest/config'
+     import vue from '@vitejs/plugin-vue'
+     import { resolve } from 'path'
+
+     export default defineConfig({
+       plugins: [vue()],
+       test: {
+         environment: 'happy-dom',
+         include: ['tests/**/*.spec.ts'],
+       },
+       resolve: {
+         alias: {
+           '@': resolve(__dirname, './src'), // 根据实际项目结构调整别名
+         },
+       },
+     })
+     ```
+  3. 在对应的 `package.json` 中添加脚本：`"test": "vitest"`, `"test:run": "vitest run"`。
+  4. 创建冒烟测试文件 `tests/setup.spec.ts`，写入 `import { expect, test } from 'vitest'; test('setup', () => { expect(1+1).toBe(2) })`。
+- **验证标准**：终端执行 `pnpm test:run` 返回成功，且无 TypeScript 类型报错。
 
 ### T1: 创建 `components/drawio-canvas/types.ts`
 
@@ -213,7 +266,7 @@ defineEmits<DrawioCanvasEmits>()
   + 展开 embedUrlParams 为搜索参数
 
 状态: iframeRef, isLoading(true), isReady(false), errorMessage(null)
-状态: pendingExportResolve(null) // 由 useDrawioMessage 管理
+状态: pendingExportResolve(null) // 由 useDrawioMessage 管理，明确 pendingExportResolve 仅存在于 useDrawioMessage.ts 的闭包内部，不要将其暴露为 Vue 的响应式状态（ref），因为它只是一个 Promise 的控制句柄，不需要触发视图更新。
 
 onMounted:
   useDrawioMessage(iframeRef, { onInit, onSave, onExit, onLoad, onAutosave, onExport, onError, onTemplate })
@@ -229,7 +282,7 @@ defineExpose:
   mergeXml(xml) → sendAction({ action: 'merge', xml })
   triggerSave() → sendAction({ action: 'export', format: 'xml' })  // 触发 draw.io 返回 xml
   setEditorConfig(config) → sendAction({ action: 'configure', config })
-  applyOperations(ops) → useDrawioOperations().applyOperations(getCurrentXmlPromise 解析后的 xml, ops)
+  applyOperations(ops) → useDrawioOperations().applyOperations(getCurrentXmlPromise 解析后的 xml, ops)  // applyOperations 方法在 Vue 组件中必须是一个 async 函数，先 await getCurrentXml()，然后再调用纯函数 applyOperations，最后将合并后的新 XML 通过 sendAction({ action: 'load', xml: result }) 重新刷入 iframe。
 
 onUnmounted:
   // useDrawioMessage 内部绑定 cleanup
@@ -319,3 +372,17 @@ graph TD
 | AC26 | `index.vue` 渲染 DrawioCanvas | 代码审查 | 模板包含 `<DrawioCanvas>` |
 | AC27 | 全部文件无 JSX/TSX | `tsc --noEmit` | 无 JSX 相关编译错误 |
 | AC28 | 全部文件使用 `<script setup lang="ts">` | 代码审查 | 每个 `.vue` 文件均使用 |
+
+## 验收检查表2 (Acceptance Criteria)
+- [ ] **AC-T0**: `pnpm test:run` 执行冒烟测试通过，Vitest 环境就绪。
+- [ ] **AC-T2**: `useDrawioXmlPipe.spec.ts` 包含至少 8 个测试用例，覆盖所有 XML 分支，`vitest run` 100% 通过。
+- [ ] **AC-T3**: 访问 `/sandbox/iframe-msg`，点击 Export 按钮，控制台成功打印 iframe 返回的 XML 字符串，无跨域报错。
+- [ ] **AC-T4**: `useDrawioOperations.spec.ts` 包含节点增删改测试，`vitest run` 100% 通过。
+- [ ] **AC-T5**: 访问 `/sandbox/drawio-canvas`，画布正常渲染，点击外部控制按钮，画布内容实时响应，控制台无 Vue 警告。
+- [ ] **AC-Sec**: 所有 `postMessage` 调用均严格校验 `targetOrigin === 'https://embed.diagrams.net'`。
+- [ ] **AC-Type**: 全局执行 `npx tsc --noEmit` 无类型报错。
+
+## 回滚与异常处理方案
+- **新文件回滚 (T1-T5)**：若某个 Composable 或组件实现出现严重逻辑错误且无法通过 2 次 Prompt 修复，直接删除该文件及其对应的 `.spec.ts` 测试文件，清空 AI 上下文后，重新发送该 Task 的 Prompt 让其重写。
+- **修改文件回滚 (T6)**：若 `index.vue` 集成失败，执行 `git restore apps/web/pages/index.vue` 恢复初始状态，禁止 AI 在错误的集成代码上继续叠加逻辑。
+- **上下文重置触发条件**：当 AI 连续 2 次未能通过 `tsc --noEmit` 或 Vitest 测试时，强制停止当前对话，开启新对话并重新注入本 Plan 文件。
