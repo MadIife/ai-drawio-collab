@@ -1,32 +1,25 @@
 <template>
-  <div
-    class="drawio-canvas-container"
-    :style="{ height: props.height, width: props.width }"
-  >
-    <div v-if="isLoading" class="flex items-center justify-center h-full">
+  <div class="drawio-canvas-container relative" :style="{ height: height, width: width }">
+    <iframe ref="iframeRef" :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      title="draw.io Diagram Editor" class="w-full h-full border-0" />
+    <div v-if="isLoading && !errorMessage" class="absolute inset-0 flex items-center justify-center bg-white z-10">
       <n-card>
         <n-spin />
       </n-card>
     </div>
-    <div v-else-if="errorMessage" class="flex flex-col items-center justify-center h-full gap-4">
+    <div v-else-if="errorMessage"
+      class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white z-10">
       <n-alert type="error" closable>
         {{ errorMessage }}
       </n-alert>
       <n-button @click="handleRetry">重试</n-button>
     </div>
-    <iframe
-      v-show="!isLoading && !errorMessage"
-      ref="iframeRef"
-      :src="embedUrl"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      title="draw.io Diagram Editor"
-      class="w-full h-full border-0"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
+import { NCard, NSpin, NAlert, NButton } from 'naive-ui'
 import type {
   DrawioCanvasEmits,
   DrawioUrlParams,
@@ -71,7 +64,7 @@ const embedUrl = computed(() => {
   url.searchParams.set('proto', 'json')
   for (const [key, value] of Object.entries(props.embedUrlParams)) {
     if (value !== undefined && value !== null) {
-      url.searchParams.set(key, String(value))
+      url.searchParams.set(key, value === true ? '1' : value === false ? '0' : String(value))
     }
   }
   return url.toString()

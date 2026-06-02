@@ -51,10 +51,15 @@ export function useDrawioMessage(
 
     if (event.source !== iframeRef.value?.contentWindow) return
 
-    const data = event.data
+    let data: Record<string, unknown>
+    try {
+      data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+    } catch {
+      return
+    }
 
     if (data.error) {
-      handlers.onError(data as DrawioErrorPayload)
+      handlers.onError(data as unknown as DrawioErrorPayload)
       return
     }
 
@@ -65,26 +70,26 @@ export function useDrawioMessage(
         handlers.onInit()
         break
       case 'load':
-        handlers.onLoad(data as EventLoadPayload)
+        handlers.onLoad(data as unknown as EventLoadPayload)
         break
       case 'save':
-        handlers.onSave(data as EventSavePayload)
+        handlers.onSave(data as unknown as EventSavePayload)
         break
       case 'exit':
-        handlers.onExit(data as EventExitPayload)
+        handlers.onExit(data as unknown as EventExitPayload)
         break
       case 'autosave':
-        handlers.onAutosave?.(data as EventAutoSavePayload)
+        handlers.onAutosave?.(data as unknown as EventAutoSavePayload)
         break
       case 'export':
-        handlers.onExport(data as EventExportPayload)
+        handlers.onExport(data as unknown as EventExportPayload)
         if (pendingExportResolve) {
-          pendingExportResolve(data as EventExportPayload)
+          pendingExportResolve(data as unknown as EventExportPayload)
           cleanupPendingExport('')
         }
         break
       case 'template':
-        handlers.onTemplate?.(data as EventTemplatePayload)
+        handlers.onTemplate?.(data as unknown as EventTemplatePayload)
         break
     }
   }

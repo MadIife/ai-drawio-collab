@@ -7,21 +7,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   const { collect } = setup(nuxtApp.vueApp)
-  const originalRender = nuxtApp.ssrContext?.render
+  const originalRender = nuxtApp.ssrContext?.render as (() => Promise<void> | void) | undefined
 
   if (originalRender) {
-    nuxtApp.ssrContext!.render = () => {
+    nuxtApp.ssrContext!.render = (() => {
       const result = originalRender()
       const style = collect()
 
       if (typeof result === 'object' && 'html' in result) {
         return {
           ...result,
-          html: result.html?.replace('</head>', `${style}</head>`),
+          html: (result.html as string)?.replace('</head>', `${style}</head>`),
         }
       }
 
       return result
-    }
+    }) as never
   }
 })
