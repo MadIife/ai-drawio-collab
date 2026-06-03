@@ -1,20 +1,22 @@
 <template>
-  <div class="drawio-canvas-container relative" :style="{ height: height, width: width }">
-    <iframe ref="iframeRef" :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-      title="draw.io Diagram Editor" class="w-full h-full border-0" />
-    <div v-if="isLoading && !errorMessage" class="absolute inset-0 flex items-center justify-center bg-white z-10">
-      <n-card>
-        <n-spin />
-      </n-card>
+  <ClientOnly>
+    <div class="drawio-canvas-container relative" :style="{ height: height, width: width }">
+      <iframe ref="iframeRef" :src="embedUrl" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        title="draw.io Diagram Editor" class="w-full h-full border-0" />
+      <div v-if="isLoading && !errorMessage" class="absolute inset-0 flex items-center justify-center bg-white z-10">
+        <n-card>
+          <n-spin />
+        </n-card>
+      </div>
+      <div v-else-if="errorMessage"
+        class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white z-10">
+        <n-alert type="error" closable>
+          {{ errorMessage }}
+        </n-alert>
+        <n-button @click="handleRetry">重试</n-button>
+      </div>
     </div>
-    <div v-else-if="errorMessage"
-      class="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white z-10">
-      <n-alert type="error" closable>
-        {{ errorMessage }}
-      </n-alert>
-      <n-button @click="handleRetry">重试</n-button>
-    </div>
-  </div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
@@ -59,7 +61,7 @@ const isReady = ref(false)
 const errorMessage = ref<string | null>(null)
 
 const embedUrl = computed(() => {
-  const url = new URL('https://embed.diagrams.net/')
+  const url = new URL('/diagrams/', window.location.origin)
   url.searchParams.set('embed', '1')
   url.searchParams.set('proto', 'json')
   for (const [key, value] of Object.entries(props.embedUrlParams)) {

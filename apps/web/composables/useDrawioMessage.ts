@@ -11,7 +11,10 @@ import type {
   ExportOptions,
 } from '../components/drawio-canvas/types'
 
-const VALID_ORIGIN = 'https://embed.diagrams.net'
+function getValidOrigin(): string {
+  if (typeof window === 'undefined') return ''
+  return window.location.origin
+}
 
 const EXPORT_TIMEOUT_MS = 30_000
 
@@ -47,7 +50,7 @@ export function useDrawioMessage(
   }
 
   function handleMessage(event: MessageEvent) {
-    if (event.origin !== VALID_ORIGIN) return
+    if (event.origin !== getValidOrigin()) return
 
     if (event.source !== iframeRef.value?.contentWindow) return
 
@@ -97,7 +100,7 @@ export function useDrawioMessage(
   function sendAction(action: Record<string, unknown>) {
     iframeRef.value?.contentWindow?.postMessage(
       JSON.stringify(action),
-      VALID_ORIGIN,
+      getValidOrigin(),
     )
   }
 
